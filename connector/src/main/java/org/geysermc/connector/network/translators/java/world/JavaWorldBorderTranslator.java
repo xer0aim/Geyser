@@ -32,7 +32,7 @@ import com.nukkitx.math.vector.Vector2f;
 import org.geysermc.connector.network.session.GeyserSession;
 import org.geysermc.connector.network.translators.PacketTranslator;
 import org.geysermc.connector.network.translators.Translator;
-import org.geysermc.connector.world.WorldBorder;
+import org.geysermc.connector.network.translators.world.WorldBorder;
 
 @Translator(packet = ServerWorldBorderPacket.class)
 public class JavaWorldBorderTranslator extends PacketTranslator<ServerWorldBorderPacket> {
@@ -42,28 +42,30 @@ public class JavaWorldBorderTranslator extends PacketTranslator<ServerWorldBorde
         WorldBorder worldBorder = session.getWorldBorder();
 
         if(packet.getAction() != WorldBorderAction.INITIALIZE && worldBorder == null) {
+            if (session.getWorldBorder().getWorldBorderTask() != null) {
+                session.getWorldBorder().getWorldBorderTask().cancel(false);
+            }
             return;
         }
 
         switch(packet.getAction()) {
             case INITIALIZE:
-                // should be getCenterZ()
-                worldBorder = new WorldBorder(Vector2f.from(packet.getCenterX(), packet.getCenterY()), packet.getRadius(), packet.getOldRadius(), packet.getNewRadius(),
-                        packet.getSpeed(), packet.getWarningTime(), packet.getWarningTime());
+                worldBorder = new WorldBorder(Vector2f.from(packet.getNewCenterX(), packet.getNewCenterZ()), packet.getOldSize(), packet.getNewSize(),
+                        packet.getLerpTime(), packet.getWarningTime(), packet.getWarningTime());
 
                 session.setWorldBorder(worldBorder);
                 break;
             case SET_SIZE:
-                worldBorder.setRadius(packet.getRadius());
+                worldBorder.setOldRadius(packet.getNewSize());
+                worldBorder.setNewRadius(packet.getNewSize());
                 break;
             case LERP_SIZE:
-                worldBorder.setOldRadius(packet.getOldRadius());
-                worldBorder.setNewRadius(packet.getNewRadius());
-                worldBorder.setSpeed(packet.getSpeed());
+                worldBorder.setOldRadius(packet.getOldSize());
+                worldBorder.setNewRadius(packet.getNewSize());
+                worldBorder.setSpeed(packet.getLerpTime());
                 break;
             case SET_CENTER:
-                // should be getCenterZ()
-                worldBorder.setCenter(Vector2f.from(packet.getCenterX(), packet.getCenterY()));
+                worldBorder.setCenter(Vector2f.from(packet.getNewCenterX(), packet.getNewCenterZ()));
                 break;
             case SET_WARNING_TIME:
                 worldBorder.setWarningTime(packet.getWarningTime());
@@ -73,6 +75,6 @@ public class JavaWorldBorderTranslator extends PacketTranslator<ServerWorldBorde
                 return;
         }
 
-        worldBorder.update();
+        worldBorder.update(session);
     }
 }
